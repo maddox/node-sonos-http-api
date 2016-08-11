@@ -1,0 +1,7 @@
+{
+  "uid": "harmony-api",
+  "append": true,
+  "script": "server.js",
+  "outFile": "log/logs.log",
+  "errFile": "log/error.log"
+}
