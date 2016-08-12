@@ -1,5 +1,5 @@
 {
-  "uid": "harmony-api",
+  "uid": "sonos-api",
   "append": true,
   "script": "server.js",
   "outFile": "log/logs.log",
