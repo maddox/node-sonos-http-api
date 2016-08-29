@@ -1,0 +1,8 @@
+#!/bin/sh
+
+cd "$(dirname "$0")/.."
+
+echo "Uninstalling sonos-api..."
+forever stop sonos-api > /dev/null 2>&1
+launchctl unload ~/Library/LaunchAgents/org.sonos-api.plist
+rm ~/Library/LaunchAgents/org.sonos-api.plist
