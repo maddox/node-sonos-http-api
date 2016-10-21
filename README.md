@@ -1,4 +1,4 @@
-[![PayPal donate button](https://img.shields.io/badge/paypal-donate-yellow.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=jimmy%2eshimizu%40gmail%2ecom&lc=SE&item_name=Support%20open%20source%20initiative&currency_code=EUR&bn=PP%2dDonationsBF%3abtn_donateCC_LG%2egif%3aNonHosted "Donate once-off to this project using Paypal")
+[![PayPal donate button](https://img.shields.io/badge/paypal-donate-yellow.svg)](https://www.paypal.me/jishi "Donate once-off to this project using Paypal")
 
 Feel free to use it as you please. Consider donating if you want to support further development.
 
@@ -9,7 +9,7 @@ SONOS HTTP API
 
 **This application requires node 4.0.0 or higher!**
 
-**This does NOT work on Node 6+ at the moment**
+**This should now work on Node 6+, please let me know if you have issues**
 
 A simple http based API for controlling your Sonos system.
 
@@ -91,7 +91,9 @@ The actions supported as of today:
 * queue
 * clearqueue
 * sleep (values in seconds)
-
+* linein (only analog linein, not PLAYBAR yet)
+* clip (announce custom mp3 clip)
+* clipall
 
 State
 -----
@@ -135,22 +137,10 @@ Obtain the current queue list from a specified player. The request will accept:
  - No parameters
 
 	`http://localhost:5005/living room/queue`
- - Just a start index for the queue
-
-	`http://localhost:5005/living room/queue/[start-index]`
- - A start index and a count of items to return
-
-	`http://localhost:5005/living room/queue/[start-index]/[count]`
-
-
 
 Example queue response:
 ```
-{
-  "startIndex": "0",
-  "numberReturned": 2,
-  "totalMatches": 33,
-  "items": [
+[
     {
       "uri": "x-sonos-spotify:spotify%3atrack%3a0AvV49z4EPz5ocYN7eKGAK?sid=9&flags=8224&sn=3",
       "albumArtURI": "/getaa?s=1&u=x-sonos-spotify%3aspotify%253atrack%253a0AvV49z4EPz5ocYN7eKGAK%3fsid%3d9%26flags%3d8224%26sn%3d3",
@@ -165,8 +155,8 @@ Example queue response:
       "artist": "The Corrs",
       "album": "In Blue"
     }
-  ]
-}
+]
+
 ```
 
 
@@ -196,7 +186,7 @@ The first player listed in the example, "room1", will become the coordinator. It
 Favorite will have precedence over a uri.
 pauseOthers will pause all zones before applying the preset, effectively muting your system.  sleep is an optional value that enables the sleep timer and is defined in total seconds (600 = 10 minutes).
 
-presets.json
+presets.json (deprecated, use preset files instead)
 -----------
 
 You can create a file with pre made presets, called presets.json. It will be loaded upon start, any changes requires a restart of the server.
@@ -251,6 +241,50 @@ In the example, there is one preset called `all`, which you can apply by invokin
 
 `http://localhost:5005/preset/all`
 
+
+presets folder
+--------------
+
+You can create a preset files in the presets folder with pre made presets, called presets.json. It will be loaded upon start, any changes made to files in this folder (addition, removal, modification) will trigger a reload of your presets.
+
+Example content:
+
+```json
+{
+  "players": [
+    {
+      "roomName": "Bathroom",
+      "volume": 10
+    },
+    {
+      "roomName": "Kitchen",
+      "volume": 10
+    },
+    {
+      "roomName": "Office",
+      "volume": 10
+    },
+    {
+      "roomName": "Bedroom",
+      "volume": 10
+    },
+    {
+      "roomName": "TV Room",
+      "volume": 15
+    }
+  ],
+  "playMode": {
+    "shuffle": true,
+    "repeat": "all",
+    "crossfade": false
+  },
+  "pauseOthers": false,
+  "favorite": "My example favorite"
+}
+```
+
+There is an example.json bundled with this repo. The name of the file will become the name of the preset.
+
 settings.json
 -------------
 
@@ -259,7 +293,6 @@ If you want to change default settings, you can create a settings.json file and 
 Available options are:
 
 * port: change the listening port
-* cacheDir: dir for tts files
 * https: use https which requires a key and certificate or pfx file
 * auth: require basic auth credentials which requires a username and password
 * announceVolume: the percentual volume use when invoking say/sayall without any volume parameter
@@ -270,7 +303,6 @@ Example:
 	  "voicerss": "Your api key for TTS with voicerss",
 	  "port": 5005,
 	  "securePort": 5006,
-	  "cacheDir": "./cache",
 	  "https": {
 	    "key": "/path/to/key.pem",
 	    "cert" : "/path/to/cert.pem"
@@ -287,7 +319,10 @@ Example:
 	  "pandora": {
 	    "username": "your-pandora-account-email-address",
 	    "password": "your-pandora-password"
-	  }
+	  },
+          "library": { 
+	    "randomQueueLimit": 50 
+	  } 
 	}
 ```
 
@@ -348,32 +383,65 @@ Sayall will group all players, set 40% volume (by default) and then try and rest
 
 The supported language codes are:
 
-|ca-es|Catalan|
-|zh-cn|Chinese (China)|
-|zh-hk|Chinese (Hong Kong)|
-|zh-tw|Chinese (Taiwan)|
-|da-dk|Danish|
-|nl-nl|Dutch|
-|en-au|English (Australia)|
-|en-ca|English (Canada)|
-|en-gb|English (Great Britain)|
-|en-in|English (India)|
-|en-us|English (United States)|
-|fi-fi|Finnish|
-|fr-ca|French (Canada)|
-|fr-fr|French (France)|
-|de-de|German|
-|it-it|Italian|
-|ja-jp|Japanese|
-|ko-kr|Korean|
-|nb-no|Norwegian|
-|pl-pl|Polish|
-|pt-br|Portuguese (Brazil)|
-|pt-pt|Portuguese (Portugal)|
-|ru-ru|Russian|
-|es-mx|Spanish (Mexico)|
-|es-es|Spanish (Spain)|
-|sv-se|Swedish (Sweden)|
+| Language code | Language |
+| ------------- | -------- |
+| ca-es | Catalan  |
+| zh-cn | Chinese (China) |
+| zh-hk |Chinese (Hong Kong) |
+| zh-tw | Chinese (Taiwan) |
+| da-dk | Danish |
+| nl-nl | Dutch |
+| en-au | English (Australia) |
+| en-ca | English (Canada) |
+| en-gb | English (Great Britain) |
+| en-in | English (India) |
+| en-us | English (United States) |
+| fi-fi | Finnish |
+| fr-ca | French (Canada) |
+| fr-fr | French (France) |
+| de-de | German |
+| it-it | Italian |
+| ja-jp | Japanese |
+| ko-kr | Korean |
+| nb-no | Norwegian |
+| pl-pl | Polish |
+| pt-br | Portuguese (Brazil) |
+| pt-pt | Portuguese (Portugal) |
+| ru-ru | Russian |
+| es-mx | Spanish (Mexico) |
+| es-es | Spanish (Spain) |
+| sv-se | Swedish (Sweden) |
+
+Line-in
+-------
+
+Convenience method for selecting line in. Will select linein for zone-group, not detach it for line-in.
+Optional parameter is line-in from another player. Examples:
+
+`/Office/linein`
+Selects line-in on zone Office belongs to, with source Office.
+
+`Office/linein/TV Room`
+Selects line-in for zone Office belongs to, with source TV Room.
+
+If you want to to isolate a player and then select line-in, use the `/Office/leave` first.
+
+Clip
+----
+
+Like "Say" but instead of a phrase, reference a custom track from the `static/clips` folder. There is a sample file available (courtesy of https://www.sound-ideas.com/).
+
+    /{Room name}/clip/{filename}[/{announce volume}]
+    /clipall/{filename}[/{announce volume}]
+
+Examples:
+
+    clipall/sample_clip.mp3
+    clipall/sample_clip.mp3/80
+    /Office/clip/sample_clip.mp3
+    /Office/clip/sample_clip.mp3/30
+
+*Pro-tip: announce your arrival with an epic theme song!*
 
 Spotify and Apple Music (Experimental)
 ----------------------
@@ -459,7 +527,8 @@ Search terms for station for library: not supported
 
 Specifying just an artist name will load the queue with up to 50 of the artist's most popular songs
 Specifying a song title or artist + song title will insert the closest match to the song into 
-the queue and start playing it
+the queue and start playing it. More than 50 tracks can be loaded from the local library by using 
+library.randomQueueLimit in the settings.json file to set the maximum to a higher value.
 
 Examples:
 /Den/musicsearch/spotify/song/red+hot+chili+peppers
@@ -477,22 +546,19 @@ Examples:
 /Kitchen/musicsearch/library/load  (Loads or reloads the music library from Sonos)
 ```
 
+Each music service has a unique service ID and in some cases the service ID for a service may be different for a different region. The default values are for the US. If you are having a problem getting music to play for a service, try the following:
+
+
+```
+1. Add a song track from Spotify to your Sonos Favorites
+2. Look in your Sonos Favorites and note the exact spelling of how it was saved
+3. Invoke the URL .../YOUR_ROOM/musicsearch/{service}/setsid/EXACT_NAME_OF_SONG
+```
+
+The setsid command will read the service ID from the specified song, save your sids on disk in lib/sids.json with the updated service ID, and use these sid values from now on. Save and return the sids.json file when you update the api, or follow the same steps again.
+
 
 Experiment with these and leave feedback!
-
-Docker
--------
-
-** Docker is now an unsupported feature, no support is given **
-
-A docker file is included, make sure that if you use this that you start up your container with "--net=host" example:
-
-```
-docker run --net=host --restart=always -d <your container/image name>
-```
-
-The restart always is to keep it running after a reboot and to keep it alive it if crashes.
-More information for docker https://docs.docker.com
 
 Webhook
 -------
@@ -522,6 +588,30 @@ or
 {
   "type": "topology-change",
   "data": { (snapshot of zones) }
+}
+```
+
+```
+{
+  "type": "volume-change",
+  "data": {
+    "uuid": "RINCON_000000000000001400",
+    "previousVolume": 14,
+    "newVolume": 16,
+    "roomName": "Office"
+  }
+}
+```
+
+```
+{
+  "type": "mute-change",
+  "data": {
+    "uuid": "RINCON_000000000000001400",
+    "previousMute": true,
+    "previousMute": false,
+    "roomName": "Office"
+  }
 }
 ```
 
