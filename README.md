@@ -72,6 +72,7 @@ The actions supported as of today:
 * groupVolume (parameter is absolute or relative volume. Prefix +/- indicates relative volume)
 * mute / unmute
 * groupMute / groupUnmute
+* togglemute (toggles mute state)
 * trackseek (parameter is queue index)
 * timeseek (parameter is in seconds, 60 for 1:00, 120 for 2:00 etc)
 * next
@@ -94,6 +95,8 @@ The actions supported as of today:
 * linein (only analog linein, not PLAYBAR yet)
 * clip (announce custom mp3 clip)
 * clipall
+* join / leave  (Grouping actions)
+* sub (on/off/gain/crossover/polarity) See SUB section for more info
 
 State
 -----
@@ -245,7 +248,7 @@ In the example, there is one preset called `all`, which you can apply by invokin
 presets folder
 --------------
 
-You can create a preset files in the presets folder with pre made presets, called presets.json. It will be loaded upon start, any changes made to files in this folder (addition, removal, modification) will trigger a reload of your presets.
+You can create a preset files in the presets folder with pre made presets. It will be loaded upon start, any changes made to files in this folder (addition, removal, modification) will trigger a reload of your presets. The name of the file (xxxxxx.json) will become the name of the preset. It will be parsed as JSON5, to be more forgiving of typos. See http://json5.org/ for more info.
 
 Example content:
 
@@ -288,7 +291,7 @@ There is an example.json bundled with this repo. The name of the file will becom
 settings.json
 -------------
 
-If you want to change default settings, you can create a settings.json file and put in the root folder.
+If you want to change default settings, you can create a settings.json file and put in the root folder. This will be parsed as JSON5, to be more forgiving. See http://json5.org/ for more info.
 
 Available options are:
 
@@ -296,11 +299,17 @@ Available options are:
 * https: use https which requires a key and certificate or pfx file
 * auth: require basic auth credentials which requires a username and password
 * announceVolume: the percentual volume use when invoking say/sayall without any volume parameter
+* presetDir: absolute path to look for presets (folder must exist!)
+
 
 Example:
 ```json
 	{
 	  "voicerss": "Your api key for TTS with voicerss",
+	  "microsoft": {
+	    "key": "Your api for Bing speech API",
+	    "name": "ZiraRUS"
+	  },
 	  "port": 5005,
 	  "securePort": 5006,
 	  "https": {
@@ -352,7 +361,18 @@ and it will replace the queue with the playlist and starts playing.
 Say (TTS support)
 -----------------
 
-Experimental support for TTS. This REQUIRES a registered API key from voiceRSS! See http://www.voicerss.org/ for info.
+Experimental support for TTS. Today the following providers are available:
+
+* voicerss
+* Microsoft Cognitive Services (Bing Text to Speech API)
+* AWS Polly
+* Google (default)
+
+It will use the one you configure in settings.json. If you define settings for multiple TTS services, it will not be guaranteed which one it will choose!
+
+#### VoiceRSS
+
+This REQUIRES a registered API key from voiceRSS! See http://www.voicerss.org/ for info.
 
 You need to add this to a file called settings.json (create if it doesn't exist), like this:
 
@@ -412,6 +432,211 @@ The supported language codes are:
 | es-es | Spanish (Spain) |
 | sv-se | Swedish (Sweden) |
 
+#### Microsoft
+This one also requires a registered api key. You can sign up for free here: https://www.microsoft.com/cognitive-services/en-US/subscriptions?mode=NewTrials and select "Bing Speech - Preview".
+
+The following configuration is available (the entered values except key are default, and may be omitted):
+
+```json
+	{
+	  "microsoft": {
+	    "key": "Your api for Bing speech API",
+	    "name": "ZiraRUS"
+	  }
+	}
+```
+
+You change language by specifying a voice name correlating to the desired language.
+Name should be specified according to this list: https://www.microsoft.com/cognitive-services/en-us/speech-api/documentation/API-Reference-REST/BingVoiceOutput#SupLocales
+where name is the right most part of the voice font name (without optional Apollo suffix). Example:
+
+`Microsoft Server Speech Text to Speech Voice (ar-EG, Hoda)` name should be specified as `Hoda`
+
+`Microsoft Server Speech Text to Speech Voice (de-DE, Stefan, Apollo)` name should be specified as `Stefan`
+
+`Microsoft Server Speech Text to Speech Voice (en-US, BenjaminRUS)` name should be specified as `BenjaminRUS`
+
+Action is:
+
+	/[Room name]/say/[phrase][/[name]][/[announce volume]]
+	/sayall/[phrase][/[name]][/[announce volume]]
+
+Example:
+
+	/Office/say/Hello, dinner is ready
+	/Office/say/Hello, dinner is ready/BenjaminRUS
+	/Office/say/Guten morgen/Stefan
+	/sayall/Hello, dinner is ready
+	/Office/say/Hello, dinner is ready/90
+	/Office/say/Guten morgen/Stefan/90
+
+Supported voices are:
+
+Hoda, Hedda, Stefan, Catherine, Linda, Susan, George, Ravi, ZiraRUS, BenjaminRUS, Laura, Pablo, Raul, Caroline, Julie, Paul, Cosimo, Ayumi, Ichiro, Daniel, Irina, Pavel, HuihuiRUS, Yaoyao, Kangkang, Tracy, Danny, Yating, Zhiwei
+
+See https://www.microsoft.com/cognitive-services/en-us/speech-api/documentation/API-Reference-REST/BingVoiceOutput#SupLocales to identify
+which language and gender it maps against.
+
+#### AWS Polly
+
+Requires AWS access tokens, which you generate for your user. Since this uses the AWS SDK, it will look for settings in either Environment variables, the ~/.aws/credentials or ~/.aws/config.
+
+You can also specify it for this application only, using:
+```json
+	{
+	  "aws": {
+	    "credentials": {
+	      "region": "eu-west-1",
+	      "accessKeyId": "Your access key id",
+	      "secretAccessKey": "Your secret"
+	    },
+	    "name": "Joanna"
+	  }
+	}
+```
+
+Choose the region where you registered your account, or the one closest to you. Polly is only supported in US East (Northern Virginia), US West (Oregon), US East (Ohio), and EU (Ireland) as of today (dec 2016)
+
+If you have your credentials elsewhere and want to stick with the default voice, you still need to make sure that the aws config option is set to trigger AWS TTS:
+
+```json
+	{
+	  "aws": {}
+	}
+```
+
+Action is:
+
+	/[Room name]/say/[phrase][/[name]][/[announce volume]]
+	/sayall/[phrase][/[name]][/[announce volume]]
+
+Example:
+
+	/Office/say/Hello, dinner is ready
+	/Office/say/Hello, dinner is ready/Nicole
+	/Office/say/Hej, maten är klar/Astrid
+	/sayall/Hello, dinner is ready
+	/Office/say/Hello, dinner is ready/90
+	/Office/say/Hej, maten är klar/Astrid/90
+
+This is the current list of voice names and their corresponding language and accent (as of Dec 2016).
+To get a current list of voices, you would need to use the AWS CLI and invoke the describe-voices command.
+
+| Language | Code | Gender | Name |
+| --------- | ---- | ------ | ---- |
+| Australian English | en-AU | Female | Nicole |
+| Australian English | en-AU | Male | Russell |
+| Brazilian Portuguese | pt-BR | Female | Vitoria |
+| Brazilian Portuguese | pt-BR | Male | Ricardo |
+| British English | en-GB | Male | Brian |
+| British English | en-GB | Female | Emma |
+| British English | en-GB | Female | Amy |
+| Canadian French | fr-CA | Female | Chantal |
+| Castilian Spanish | es-ES | Female | Conchita |
+| Castilian Spanish | es-ES | Male | Enrique |
+| Danish | da-DK | Female | Naja |
+| Danish | da-DK | Male | Mads |
+| Dutch | nl-NL | Male | Ruben |
+| Dutch | nl-NL | Female | Lotte |
+| French | fr-FR | Male | Mathieu |
+| French | fr-FR | Female | Celine |
+| German | de-DE | Female | Marlene |
+| German | de-DE | Male | Hans |
+| Icelandic | is-IS | Male | Karl |
+| Icelandic | is-IS | Female | Dora |
+| Indian English | en-IN | Female | Raveena |
+| Italian | it-IT | Female | Carla |
+| Italian | it-IT | Male | Giorgio |
+| Japanese | ja-JP | Female | Mizuki |
+| Norwegian | nb-NO | Female | Liv |
+| Polish | pl-PL | Female | Maja |
+| Polish | pl-PL | Male | Jacek |
+| Polish | pl-PL | Male | Jan |
+| Polish | pl-PL | Female | Ewa |
+| Portuguese | pt-PT | Female | Ines |
+| Portuguese | pt-PT | Male | Cristiano |
+| Romanian | ro-RO | Female | Carmen |
+| Russian | ru-RU | Female | Tatyana |
+| Russian | ru-RU | Male | Maxim |
+| Swedish | sv-SE | Female | Astrid |
+| Turkish | tr-TR | Female | Filiz |
+| US English | en-US | Male | Justin |
+| US English | en-US | Female | Joanna |
+| US English | en-US | Male | Joey |
+| US English | en-US | Female | Ivy |
+| US English | en-US | Female | Salli |
+| US English | en-US | Female | Kendra |
+| US English | en-US | Female | Kimberly |
+| US Spanish | es-US | Female | Penelope |
+| US Spanish | es-US | Male | Miguel |
+| Welsh | cy-GB | Female | Gwyneth |
+| Welsh English | en-GB-WLS | Male | Geraint |
+
+#### Google (default if no other has been configured)
+
+Does not require any API keys. Please note that Google has been known in the past to change the requirements for its Text-to-Speech API, and this may stop working in the future. There is also limiations to have many request one is allowed to do in a specific time period.
+
+The following language codes are supported
+
+| Language code | Language |
+| ------------- | -------- |
+| af | Afrikaans |
+| sq | Albanian |
+| ar | Arabic |
+| hy | Armenian |
+| bn | Bengali |
+| ca | Catalan |
+| zh | Chinese |
+| zh-cn | Chinese (Mandarin/China) |
+| zh-tw | Chinese (Mandarin/Taiwan) |
+| zh-yue | Chinese (Cantonese) |
+| hr | Croatian |
+| cs | Czech |
+| da | Danish |
+| nl | Dutch |
+| en | English |
+| en-au | English (Australia) |
+| en-gb | English (Great Britain) |
+| en-us | English (United States) |
+| eo | Esperanto |
+| fi | Finnish |
+| fr | Franch |
+| de | German |
+| el | Greek |
+| hi | Hindi |
+| hu | Hungarian |
+| is | Icelandic |
+| id | Indonesian |
+| it | Italian |
+| ja | Japanese |
+| ko | Korean |
+| la | Latin |
+| lv | Latvian |
+| mk | Macedonian |
+| no | Norwegian |
+| pl | Polish |
+| pt | Portuguese |
+| pt-br | Portuguese (Brazil) |
+| ro | Romanian |
+| ru | Russian |
+| sr | Serbian |
+| sk | Slovak |
+| es | Spanish |
+| es-es | Spanish (Spain) |
+| es-us | Spanish (United States) |
+| sw | Swahili |
+| sv | Swedish |
+| ta | Tamil |
+| th | Thai |
+| tr | Turkish |
+| vi | Vietnamese |
+| cy | Welsh |
+
+Action is:
+
+	/[Room name]/say/[phrase][/[language_code]][/[announce volume]]
+	/sayall/[phrase][/[language_code]][/[announce volume]]
+
 Line-in
 -------
 
@@ -421,7 +646,7 @@ Optional parameter is line-in from another player. Examples:
 `/Office/linein`
 Selects line-in on zone Office belongs to, with source Office.
 
-`Office/linein/TV Room`
+`/Office/linein/TV%20Room`
 Selects line-in for zone Office belongs to, with source TV Room.
 
 If you want to to isolate a player and then select line-in, use the `/Office/leave` first.
@@ -436,12 +661,44 @@ Like "Say" but instead of a phrase, reference a custom track from the `static/cl
 
 Examples:
 
-    clipall/sample_clip.mp3
-    clipall/sample_clip.mp3/80
+    /clipall/sample_clip.mp3
+    /clipall/sample_clip.mp3/80
     /Office/clip/sample_clip.mp3
     /Office/clip/sample_clip.mp3/30
 
 *Pro-tip: announce your arrival with an epic theme song!*
+
+Grouping
+--------
+
+You have basic grouping capabilities. `join` will join the selected player to the specified group (specify group by addressing any of the players in that group):
+
+`/Kitchen/join/Office`
+This will join the Kitchen player to the group that Office currently belong to.
+
+`/Kitchen/leave`
+Kitchen will leave any group it was part of and become a standalone player.
+
+You don't have to ungroup a player in order to join it to another group, just join it to the new group and it will jump accordingly.
+
+SUB
+---
+
+SUB actions include the following:
+`/TV%20Room/sub/off`
+Turn off sub
+
+`/TV%20Room/sub/on`
+Turn on sub
+
+`/TV%20Room/sub/gain/3`
+Adjust gain, -15 to 15. You can make bigger adjustments, but I'm limiting it for now because it might damage the SUB.
+
+`/TV%20Room/sub/crossover/90`
+adjust crossover frequency in hz. Official values are 50 through 110 in increments of 10. Use other values at your own risk! My SUB gave a loud bang and shut down when setting this to high, and I thought I broke it. However, a restart woke it up again.
+
+`/TV%20Room/sub/polarity/1`
+Switch "placement adjustment" or more commonly known as phase. 0 = 0°, 1 = 180°
 
 Spotify and Apple Music (Experimental)
 ----------------------
@@ -496,6 +753,17 @@ Your Pandora credentials need to be added to the settings.json file
             "password": "your-pandora-password"
           }
   ```
+ 
+
+Tunein
+----------------------
+Given a station id this will play the streaming broadcast via the tunein service. You can find tunein station ids via services like [radiotime](http://opml.radiotime.com/)
+
+The following endpoint is available:
+
+```
+/RoomName/tunein/play/{station id}
+```
  
 
 Music Search and Play
@@ -607,3 +875,7 @@ or
 "data" property will be equal to the same data as you would get from /RoomName/state or /zones. There is an example endpoint in the root if this project called test_endpoint.js which you may fire up to get an understanding of what is posted, just invoke it with "node test_endpoint.js" in a terminal, and then start the http-api in another terminal.
 
 
+DOCKER
+-----
+
+Docker usage is maintained by [Chris Nesbitt-Smith](https://github.com/chrisns) at [chrisns/docker-node-sonos-http-api](https://github.com/chrisns/docker-node-sonos-http-api)
